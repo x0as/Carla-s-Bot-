@@ -6,6 +6,8 @@ import threading
 import os
 import random
 import datetime
+import requests
+import time
 
 # 🌐 Flask Web Server
 app = Flask(__name__)
@@ -14,8 +16,23 @@ app = Flask(__name__)
 def home():
     return "Bot is running!"
 
+@app.route("/favicon.ico")
+def favicon():
+    return '', 204  # Prevent 404 spam
+
 def run_web():
     app.run(host="0.0.0.0", port=8080)
+
+# 🔁 Keepalive Ping to Render
+def keep_alive():
+    def ping():
+        while True:
+            try:
+                requests.get("https://carla-s-bot.onrender.com")
+            except:
+                pass
+            time.sleep(600)  # every 10 minutes
+    threading.Thread(target=ping).start()
 
 # 🔐 Load Token from environment variable
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -29,14 +46,13 @@ intents.members = True
 bot = commands.Bot(command_prefix=",", intents=intents)
 tree = bot.tree
 
-# 🧵 Start Flask in a separate thread
+# 🧵 Start Flask and Keepalive Threads
 threading.Thread(target=run_web).start()
+keep_alive()
 
 @bot.event
 async def on_ready():
     print(f"{bot.user} is online!")
-
-    # Clear old global slash commands and sync fresh ones
     tree.clear_commands(guild=None)
     await tree.sync()
     print("Slash commands refreshed.")
@@ -55,6 +71,19 @@ def slash_admin_check(interaction: discord.Interaction):
         interaction.user.guild_permissions.administrator
         or interaction.user.id == 843061674378002453
     )
+
+# ⚠️ Global Error Handler
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.send("❌ Unknown command. Type `,help` to see available commands.")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("⚠️ Missing arguments. Check `,help` for correct usage.")
+    elif isinstance(error, commands.CheckFailure):
+        await ctx.send("🚫 You don't have permission to use this command.")
+    else:
+        await ctx.send("⚠️ An error occurred while processing the command.")
+        raise error
 
 # 📘 Help Command
 @bot.command()
@@ -105,9 +134,13 @@ async def say(ctx, *, message):
 
 @bot.command()
 @is_admin()
-async def embed(ctx, title, *, description):
-    em = discord.Embed(title=title, description=description, color=discord.Color.blue())
-    await ctx.send(embed=em)
+async def embed(ctx, title: str, *, description: str):
+    try:
+        em = discord.Embed(title=title, description=description, color=discord.Color.blue())
+        await ctx.send(embed=em)
+    except Exception as e:
+        await ctx.send("⚠️ Failed to send embed. Check your formatting and permissions.")
+        print(f"Embed error: {e}")
 
 @bot.command()
 @is_admin()
@@ -174,8 +207,12 @@ async def slash_say(interaction: discord.Interaction, message: str):
 @tree.command(name="embed", description="Send an embed")
 @app_commands.check(slash_admin_check)
 async def slash_embed(interaction: discord.Interaction, title: str, description: str):
-    em = discord.Embed(title=title, description=description, color=discord.Color.green())
-    await interaction.response.send_message(embed=em)
+    try:
+        em = discord.Embed(title=title, description=description, color=discord.Color.green())
+        await interaction.response.send_message(embed=em)
+    except Exception as e:
+        await interaction.response.send_message("⚠️ Failed to send embed.", ephemeral=True)
+        print(f"Slash embed error: {e}")
 
 @tree.command(name="status", description="Change the bot's status")
 @app_commands.describe(type="Type: playing, watching, listening, competing", message="Status message")

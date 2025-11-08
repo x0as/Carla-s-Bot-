@@ -5,7 +5,6 @@ from flask import Flask
 import threading
 import os
 import random
-from dotenv import load_dotenv
 import datetime
 
 # 🌐 Flask Web Server
@@ -18,8 +17,7 @@ def home():
 def run_web():
     app.run(host="0.0.0.0", port=8080)
 
-# 🔐 Load Token
-load_dotenv()
+# 🔐 Load Token from environment variable
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 # 🤖 Discord Bot Setup
@@ -37,7 +35,11 @@ threading.Thread(target=run_web).start()
 @bot.event
 async def on_ready():
     print(f"{bot.user} is online!")
+
+    # Clear old global slash commands and sync fresh ones
+    tree.clear_commands(guild=None)
     await tree.sync()
+    print("Slash commands refreshed.")
 
 # 🛡️ Admin Check
 def is_admin():
@@ -45,7 +47,7 @@ def is_admin():
         return ctx.author.guild_permissions.administrator
     return commands.check(predicate)
 
-# ⚙️ Basic Commands
+# ⚙️ Basic Prefix Commands
 @bot.command()
 async def ping(ctx):
     await ctx.send(f"Pong! {round(bot.latency * 1000)}ms")
@@ -120,4 +122,7 @@ async def slash_embed(interaction: discord.Interaction, title: str, description:
     await interaction.response.send_message(embed=em)
 
 # 🚀 Run Bot
-bot.run(TOKEN)
+if TOKEN:
+    bot.run(TOKEN)
+else:
+    print("❌ DISCORD_TOKEN environment variable not set.")

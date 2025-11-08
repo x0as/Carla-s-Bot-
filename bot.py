@@ -47,6 +47,34 @@ def is_admin():
         return ctx.author.guild_permissions.administrator
     return commands.check(predicate)
 
+# 📘 Help Command
+@bot.command()
+async def help(ctx):
+    help_text = """
+**📘 Bot Commands Guide**
+
+**General Commands:**
+- `,ping` — Check bot latency
+- `,afk` — Mark yourself as AFK
+- `,eightball <question>` — Ask the magic 8-ball
+- `,say <message>` — Make the bot say something (admin only)
+- `,embed <title> <message>` — Send an embed (admin only)
+- `,status <type> <message>` — Change bot status (admin only)
+
+**Moderation Commands (admin only):**
+- `,kick <@user> [reason]` — Kick a user
+- `,ban <@user> [reason]` — Ban a user
+- `,timeout <@user> <seconds>` — Timeout a user
+
+**Role Management (admin only):**
+- `,addrole <@user> <@role>` — Add a role to a user
+- `,removerole <@user> <@role>` — Remove a role from a user
+
+**Slash Commands:**
+All of the above are also available as `/commands` with autocomplete and cleaner UI.
+"""
+    await ctx.send(help_text)
+
 # ⚙️ Basic Prefix Commands
 @bot.command()
 async def ping(ctx):
@@ -71,6 +99,25 @@ async def say(ctx, *, message):
 async def embed(ctx, title, *, description):
     em = discord.Embed(title=title, description=description, color=discord.Color.blue())
     await ctx.send(embed=em)
+
+@bot.command()
+@is_admin()
+async def status(ctx, type: str, *, message: str):
+    type = type.lower()
+    activity = None
+    if type == "playing":
+        activity = discord.Game(name=message)
+    elif type == "watching":
+        activity = discord.Activity(type=discord.ActivityType.watching, name=message)
+    elif type == "listening":
+        activity = discord.Activity(type=discord.ActivityType.listening, name=message)
+    elif type == "competing":
+        activity = discord.Activity(type=discord.ActivityType.competing, name=message)
+    else:
+        await ctx.send("❌ Invalid type. Use: playing, watching, listening, or competing.")
+        return
+    await bot.change_presence(activity=activity)
+    await ctx.send(f"✅ Status updated to **{type.title()} {message}**")
 
 # 🔨 Role Management
 @bot.command()
@@ -120,6 +167,26 @@ async def slash_say(interaction: discord.Interaction, message: str):
 async def slash_embed(interaction: discord.Interaction, title: str, description: str):
     em = discord.Embed(title=title, description=description, color=discord.Color.green())
     await interaction.response.send_message(embed=em)
+
+@tree.command(name="status", description="Change the bot's status")
+@app_commands.describe(type="Type: playing, watching, listening, competing", message="Status message")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_status(interaction: discord.Interaction, type: str, message: str):
+    type = type.lower()
+    activity = None
+    if type == "playing":
+        activity = discord.Game(name=message)
+    elif type == "watching":
+        activity = discord.Activity(type=discord.ActivityType.watching, name=message)
+    elif type == "listening":
+        activity = discord.Activity(type=discord.ActivityType.listening, name=message)
+    elif type == "competing":
+        activity = discord.Activity(type=discord.ActivityType.competing, name=message)
+    else:
+        await interaction.response.send_message("❌ Invalid type. Use: playing, watching, listening, or competing.", ephemeral=True)
+        return
+    await bot.change_presence(activity=activity)
+    await interaction.response.send_message(f"✅ Status updated to **{type.title()} {message}**")
 
 # 🚀 Run Bot
 if TOKEN:
